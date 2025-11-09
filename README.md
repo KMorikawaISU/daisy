@@ -1,30 +1,21 @@
----
-output: github_document
----
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment  = "#>",
-  fig.path = "man/figures/README-",
-  out.width = "100%"
-)
-```
-
 # daisy
 
-**daisy** provides estimation and bootstrap tools for **Data-Adaptive Integration with Summary Data** using **generalized entropy balancing (GEB)**.
+**daisy** provides estimation and bootstrap tools for **Data-Adaptive
+Integration with Summary Data** using **generalized entropy balancing
+(GEB)**.
 
 Main functions
 
 - `EB_est()` — estimator (supports `auto = TRUE` model selection)  
-- `EB_bootstrap_var()` — bootstrap variance (no auto inside bootstrap; specify model)
+- `EB_bootstrap_var()` — bootstrap variance (no auto inside bootstrap;
+  specify model)
 
 ## Installation
 
-```{r, eval=FALSE}
+``` r
 # using pak (recommended)
 # install.packages("pak")
 pak::pak("KMorikawaISU/daisy")
@@ -36,10 +27,12 @@ remotes::install_github("KMorikawaISU/daisy")
 
 ## Quick start (paper-style toy data)
 
-> 最も単純な設定：**x1 ~ N(0,1)**、**x2 ~ Bern(0.5)**、**y | x ~ N(0.5*x1 - x2, 1)**、  
-> 内部 n = 200、外部要約 n1 = 2000。README を軽くするため **実行しません**（`eval = FALSE`）。
+> 最も単純な設定：**x1 ~ N(0,1)**、**x2 ~ Bern(0.5)**、\*\*y \| x ~
+> N(0.5\*x1 - x2, 1)**、  
+> 内部 n = 200、外部要約 n1 = 2000。README を軽くするため
+> **実行しません\*\*（`eval = FALSE`）。
 
-```{r, eval=FALSE}
+``` r
 library(daisy)
 
 ## -------------------------------
@@ -108,4 +101,5 @@ bt$ci_percentile_95
 
 ## Notes
 
-- Step-2 uses KL (fixed). For numerical compatibility, second-step weights are built from the **first-step** linear predictor.
+- Step-2 uses KL (fixed). For numerical compatibility, second-step
+  weights are built from the **first-step** linear predictor.
