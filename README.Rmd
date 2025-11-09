@@ -67,11 +67,11 @@ dat_int <- data.frame(
   y_int   = y_int
 )
 
-# MU_int: balance over (1, x1, x1^2, x2)
-MU_int <- cbind(1, x1_int, x1_int^2, x2_int)
+# MU_int: DO NOT include a constant column (intercept is added internally)
+MU_int <- cbind(x1_int, x1_int^2, x2_int)
 
-# MU_ext: target external moments (1, E[x1], E[x1^2], E[x2])
-MU_ext <- c(1, mean(x1_ext), mean(x1_ext^2), mean(x2_ext))
+# MU_ext: external moments corresponding to MU_int (no leading 1)
+MU_ext <- c(mean(x1_ext), mean(x1_ext^2), mean(x2_ext))
 
 # eta: external target for step-2 (mean of outcome)
 eta <- mean(y_ext)
@@ -89,6 +89,15 @@ fit <- EB_est(
 fit$best_model      # list(divergence=..., r=...)
 fit$result["est"]   # point estimate
 fit$Entropy2
+
+# Compact report (lm-like)
+summary(fit)
+# Example (illustrative):
+# Summary of eb_est object
+#   model divergence    r   D1 D1_lt_1   D2 D2_lt_1 Entropy2    est
+#       1        KL    1 0.72    TRUE 0.95    TRUE    12.31  -0.10
+#       2        LW 0.10 1.08   FALSE 0.90    TRUE    12.85  -0.09
+# Selected (best) model index: 2
 
 ## -------------------------------
 ## 3) Bootstrap variance (no auto)
@@ -110,3 +119,4 @@ bt$ci_percentile_95
 ## Notes
 
 - Step-2 uses KL (fixed). For numerical compatibility with the original implementation, the second-step weights are built from the **first-step** linear predictor.
+- **Input convention**: `MU_int` must **not** include constant columns (e.g., a column of 1s). If a constant is supplied, it is dropped with a warning; an intercept is added internally by `EB_est()`.
