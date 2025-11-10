@@ -9,16 +9,16 @@
 \arguments{
 \item{object}{An object returned by EB_est() (class "daisy_eb").}
 
-\item{digits}{Integer; number of digits to print.}
+\item{digits}{Number of digits to print.}
 
 \item{...}{Unused.}
 }
 \value{
-An object of class "summary.daisy_eb" that prints nicely.
+An object of class "summary.daisy_eb".
 }
 \description{
-Prints the point estimate and diagnostics. If \code{auto = TRUE}, it shows
-the selected first-step model and a leaderboard with Entropy2, D1, and D2
-for all candidates. If \code{auto = FALSE}, it shows the fixed model with its
+Prints the point estimate and diagnostics. If \code{auto = TRUE}, it shows the
+selected first-step model and a leaderboard with Entropy2, D1, and D2 for
+all candidates. If \code{auto = FALSE}, it shows the fixed model with its
 Entropy2, D1, and D2.
 }

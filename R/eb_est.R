@@ -1,45 +1,47 @@
 # R/eb_est.R
-# Estimation routines for generalized entropy balancing (GEB).
+# Estimation for generalized entropy balancing (GEB).
 # Defines:
-#   - EB_est_one(): run one candidate (divergence ∈ {KL,LW,QLS,TS}, r given)
-#   - EB_est():     fixed model OR auto search over {KL} ∪ {LW,QLS,TS}×r_set
-# Returns always carry class "daisy_eb" so summary() prints the custom view.
+#   - EB_est_one(): run one candidate (divergence in {KL, LW, QLS, TS}, r given)
+#   - EB_est():     fixed model OR auto search over {KL} U {LW,QLS,TS} x r_set
+#
+# NOTE: This file assumes ent.fun(), lmd.fun(), w.hat.fun() exist
+#       in other R files (e.g., R/entropy.R, R/dual.R) exactly as you have.
 
 #' Generalized Entropy Balancing Estimator
 #'
-#' Two-step estimator integrating individual-level data with external summary
-#' data via generalized entropy balancing. The second step uses KL (fixed),
-#' and (for numerical compatibility with the original script) the second-step
-#' weights are computed from the FIRST-step linear predictor.
+#' Two-step estimator integrating individual-level data with external summary data
+#' via generalized entropy balancing. The second step is fixed to KL and, for
+#' numerical compatibility with the original code, the second-step weights are
+#' computed from the FIRST-step linear predictor (not from LMD2).
 #'
-#' @param dat_int data.frame with internal variables. Must contain a column `y_int`
-#'   (response) and predictors as remaining columns (any names).
-#' @param MU_int numeric matrix (n x p). First column must be 1 (intercept).
-#' @param MU_ext numeric length-p vector of target moments; first element must be 1.
-#' @param eta    numeric scalar: external target for step-2 (e.g., mean of outcome).
+#' @param dat_int data.frame with internal variables. Must contain `y_int`.
+#' @param MU_int  matrix (n x p). First column must be 1 (intercept).
+#' @param MU_ext  numeric length-p vector. First element must be 1 (intercept).
+#' @param eta     numeric scalar: external target for step-2 (e.g., mean outcome).
 #' @param divergence character in {"KL","LW","QLS","TS"}; used when `auto = FALSE`.
-#' @param r    numeric scalar for LW/QLS/TS (ignored for KL); used when `auto = FALSE`.
-#' @param w_type logical; if TRUE, second-step regression is weighted by first-step w.
-#' @param w_fixed kept for API compatibility (unused).
-#' @param second_covariate optional matrix for additional second-step constraints (unused here).
-#' @param non_regression kept for API compatibility (unused).
-#' @param link character link for regression: "identity","logit","probit","gamma".
-#' @param M numeric threshold for second-step Lagrange multiplier box constraint.
-#' @param auto logical; if TRUE, search the best first-step model by Entropy2 over
-#'   {KL} ∪ {LW,QLS,TS}×r_set.
-#' @param r_set numeric vector of r candidates used when `auto = TRUE`.
+#' @param r       numeric; tuning for LW/QLS/TS (ignored for KL) when `auto = FALSE`.
+#' @param w_type  logical; if TRUE, internal regression is weighted by first-step w.
+#' @param w_fixed kept for compatibility (unused).
+#' @param second_covariate optional (unused here; interface compatibility).
+#' @param non_regression   kept for compatibility (unused).
+#' @param link    "identity" | "logit" | "probit" | "gamma".
+#' @param M       numeric; box bound for step-2 lambda.
+#' @param auto    logical; if TRUE, search over {KL} U {LW,QLS,TS} x r_set by Entropy2.
+#' @param r_set   numeric vector of r candidates used when `auto = TRUE`.
 #'
-#' @return An object of class `"daisy_eb"` with fields:
+#' @return Object of class `"daisy_eb"`. For a single run:
 #' \itemize{
-#' \item `result["est"]` : point estimate (mean of w2.hat * y)
-#' \item `Entropy2`      : second-step entropy objective value
-#' \item `D1`, `D2`      : geometry diagnostics (Mahalanobis-based and chi-square-based)
-#' \item `model`, `r`    : chosen divergence and r (fixed case)
-#' \item `best_model`    : list(divergence, r) when `auto = TRUE`
-#' \item `leaderboard`   : data.frame(divergence, r, Entropy2, D1, D2) when `auto = TRUE`
-#' \item `all_results`   : list of per-candidate result objects when `auto = TRUE`
+#' \item `result["est"]`: point estimate (mean of w2 * y)
+#' \item `Entropy2`: step-2 entropy value
+#' \item `D1`, `D2`: diagnostics
+#' \item `model`, `r`: first-step spec
 #' }
-#'
+#' If `auto = TRUE`, also:
+#' \itemize{
+#' \item `best_model`: list(divergence, r)
+#' \item `leaderboard`: data.frame(divergence, r, Entropy2, D1, D2)
+#' \item `all_results`: list of per-candidate result lists
+#' }
 #' @export
 #' @importFrom stats runif cov lm glm binomial Gamma predict
 EB_est <- function(
@@ -58,24 +60,23 @@ EB_est <- function(
     auto             = FALSE,
     r_set            = c(0.01, 0.1, 0.5, 1)
 ) {
-
-  # --- basic checks ---
+  # Basic checks
   if (!is.data.frame(dat_int)) stop("dat_int must be a data.frame.")
-  if (!("y_int" %in% names(dat_int))) stop("dat_int must contain column 'y_int'.")
+  if (!("y_int" %in% names(dat_int))) stop("dat_int must contain 'y_int'.")
   if (!is.matrix(MU_int)) stop("MU_int must be a matrix.")
-  if (!is.numeric(MU_ext)) stop("MU_ext must be a numeric vector.")
+  if (!is.numeric(MU_ext)) stop("MU_ext must be numeric.")
   if (length(MU_ext) != ncol(MU_int)) stop("length(MU_ext) must match ncol(MU_int).")
   if (!is.numeric(eta) || length(eta) != 1L) stop("eta must be a numeric scalar.")
 
-  # --- D1 is common across candidates ---
+  # D1 is common across candidates
   mu_diff <- drop(colMeans(MU_int) - MU_ext)
   Sx      <- stats::cov(MU_int[, -1, drop = FALSE])
   D1_val  <- c(sqrt(t(mu_diff[-1]) %*% solve(Sx) %*% mu_diff[-1]))
 
-  # ---- single model path ----
+  # Fixed model path
   if (!isTRUE(auto)) {
     ans <- EB_est_one(
-      dat_int, MU_int, MU_ext, eta,
+      dat_int = dat_int, MU_int = MU_int, MU_ext = MU_ext, eta = eta,
       divergence = divergence, r = r,
       w_type = w_type, link = link, M = M,
       D1_override = D1_val
@@ -85,11 +86,10 @@ EB_est <- function(
     return(ans)
   }
 
-  # ---- auto search: {KL} ∪ {LW,QLS,TS}×r_set ----
-  # Evaluate candidates into a list (preserve list order)
+  # Auto search: {KL} U {LW,QLS,TS} x r_set
   res_list <- list()
 
-  # 1) KL (r ignored)
+  # KL (r ignored)
   res_list[[length(res_list) + 1L]] <- EB_est_one(
     dat_int, MU_int, MU_ext, eta,
     divergence = "KL", r = NA_real_,
@@ -97,7 +97,7 @@ EB_est <- function(
     D1_override = D1_val
   )
 
-  # 2) LW/QLS/TS × r_set
+  # LW/QLS/TS × r_set
   for (div in c("LW", "QLS", "TS")) {
     for (rr in r_set) {
       res_list[[length(res_list) + 1L]] <- EB_est_one(
@@ -109,7 +109,7 @@ EB_est <- function(
     }
   }
 
-  # Build leaderboard (same order as res_list, then sort by Entropy2 desc)
+  # Leaderboard and selection
   lb <- do.call(
     rbind,
     lapply(res_list, function(z) {
@@ -125,10 +125,9 @@ EB_est <- function(
   )
   ord <- order(lb$Entropy2, decreasing = TRUE)
   lb  <- lb[ord, , drop = FALSE]
-  best_idx <- ord[1]               # index into res_list
-  best_obj <- res_list[[best_idx]] # aligned with lb before sorting
+  best_idx <- ord[1]
+  best_obj <- res_list[[best_idx]]
 
-  # annotate and return
   best_obj$best_model  <- list(divergence = lb$divergence[1], r = lb$r[1])
   best_obj$leaderboard <- lb
   best_obj$all_results <- res_list
@@ -137,15 +136,10 @@ EB_est <- function(
   return(best_obj)
 }
 
-# ------------------------------------------------------------------------------
-
-# Internal worker: run one candidate (divergence, r)
-# Conventions (fixed to reproduce original script):
-# * second-step divergence is KL
-# * second-step weights are built from the FIRST-step linear predictor (LMD1)
-#   (even though exp(LMD2) would be a natural alternative).
-#
-# Not exported.
+# ---- internal worker (not exported) ----
+# Run one candidate. Keeps the original behavior:
+# * step-2 divergence = KL
+# * w2.hat is built from FIRST-step LMD (not LMD2).
 EB_est_one <- function(
     dat_int, MU_int, MU_ext, eta,
     divergence = "KL", r = 1,
@@ -155,7 +149,7 @@ EB_est_one <- function(
   y_int <- dat_int$y_int
   n     <- nrow(MU_int)
 
-  # D1 is common across candidates; allow override for efficiency
+  # D1
   if (is.null(D1_override)) {
     mu_diff <- drop(colMeans(MU_int) - MU_ext)
     Sx      <- stats::cov(MU_int[, -1, drop = FALSE])
@@ -164,7 +158,7 @@ EB_est_one <- function(
     D1 <- D1_override
   }
 
-  # ---------- 1st-step: dual optimization ----------
+  # ---- 1st step (dual) ----
   k1 <- 0; ok1 <- FALSE; opt1 <- NULL
   while (k1 < 1000 && !ok1) {
     tries <- lapply(
@@ -184,7 +178,6 @@ EB_est_one <- function(
     k1 <- k1 + 1
   }
   if (!ok1) {
-    # fail-safe return
     out <- list(
       model    = divergence,
       r        = if (identical(divergence, "KL")) NA_real_ else r,
@@ -204,7 +197,7 @@ EB_est_one <- function(
   w1   <- w.hat.fun(LMD1, divergence, r = if (identical(divergence, "KL")) 1 else r)
   D2   <- sqrt(mean(w1^2) - 1)
 
-  # ---------- internal regression (weighted if requested) ----------
+  # ---- internal regression ----
   ww <- if (isTRUE(w_type)) w1 else rep(1, n)
   reg_int <- switch(
     link,
@@ -230,7 +223,7 @@ EB_est_one <- function(
     return(out)
   }
 
-  # ---------- 2nd-step EB (KL) ----------
+  # ---- 2nd step (KL) ----
   h    <- stats::predict(reg_int)
   calH <- w1 * h
   eta_int <- cbind(1, calH)
@@ -244,7 +237,7 @@ EB_est_one <- function(
         optim(
           stats::runif(ncol(eta_int), -0.1, 0.1),
           lmd.fun(eta_int, eta_ext, divergence = "KL", r = 0),
-          method = "L-BFGS-B", lower = -M, upper =  M
+          method = "L-BFGS-B", lower = -M, upper = M
         ),
         silent = TRUE
       )
@@ -255,11 +248,10 @@ EB_est_one <- function(
     k2 <- k2 + 1
   }
 
-  # IMPORTANT: keep original compatibility — build w2 from LMD1 (not from LMD2)
+  # IMPORTANT: for numerical compatibility, w2 is built from FIRST-step LMD
   w2   <- w.hat.fun(LMD1, divergence = "KL", r = 1)
   ent2 <- ent.fun(w2, divergence = "KL", r = 1)
-
-  est <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_
+  est  <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_
 
   out <- list(
     model    = divergence,

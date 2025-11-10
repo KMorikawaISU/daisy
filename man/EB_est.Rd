@@ -22,51 +22,52 @@ EB_est(
 )
 }
 \arguments{
-\item{dat_int}{data.frame with internal variables. Must contain a column \code{y_int}
-(response) and predictors as remaining columns (any names).}
+\item{dat_int}{data.frame with internal variables. Must contain \code{y_int}.}
 
-\item{MU_int}{numeric matrix (n x p). First column must be 1 (intercept).}
+\item{MU_int}{matrix (n x p). First column must be 1 (intercept).}
 
-\item{MU_ext}{numeric length-p vector of target moments; first element must be 1.}
+\item{MU_ext}{numeric length-p vector. First element must be 1 (intercept).}
 
-\item{eta}{numeric scalar: external target for step-2 (e.g., mean of outcome).}
+\item{eta}{numeric scalar: external target for step-2 (e.g., mean outcome).}
 
 \item{divergence}{character in {"KL","LW","QLS","TS"}; used when \code{auto = FALSE}.}
 
-\item{r}{numeric scalar for LW/QLS/TS (ignored for KL); used when \code{auto = FALSE}.}
+\item{r}{numeric; tuning for LW/QLS/TS (ignored for KL) when \code{auto = FALSE}.}
 
-\item{w_type}{logical; if TRUE, second-step regression is weighted by first-step w.}
+\item{w_type}{logical; if TRUE, internal regression is weighted by first-step w.}
 
-\item{w_fixed}{kept for API compatibility (unused).}
+\item{w_fixed}{kept for compatibility (unused).}
 
-\item{second_covariate}{optional matrix for additional second-step constraints (unused here).}
+\item{second_covariate}{optional (unused here; interface compatibility).}
 
-\item{non_regression}{kept for API compatibility (unused).}
+\item{non_regression}{kept for compatibility (unused).}
 
-\item{link}{character link for regression: "identity","logit","probit","gamma".}
+\item{link}{"identity" | "logit" | "probit" | "gamma".}
 
-\item{M}{numeric threshold for second-step Lagrange multiplier box constraint.}
+\item{M}{numeric; box bound for step-2 lambda.}
 
-\item{auto}{logical; if TRUE, search the best first-step model by Entropy2 over
-{KL} ∪ {LW,QLS,TS}×r_set.}
+\item{auto}{logical; if TRUE, search over {KL} U {LW,QLS,TS} x r_set by Entropy2.}
 
 \item{r_set}{numeric vector of r candidates used when \code{auto = TRUE}.}
 }
 \value{
-An object of class \code{"daisy_eb"} with fields:
+Object of class \code{"daisy_eb"}. For a single run:
 \itemize{
-\item \code{result["est"]} : point estimate (mean of w2.hat * y)
-\item \code{Entropy2}      : second-step entropy objective value
-\item \code{D1}, \code{D2}      : geometry diagnostics (Mahalanobis-based and chi-square-based)
-\item \code{model}, \code{r}    : chosen divergence and r (fixed case)
-\item \code{best_model}    : list(divergence, r) when \code{auto = TRUE}
-\item \code{leaderboard}   : data.frame(divergence, r, Entropy2, D1, D2) when \code{auto = TRUE}
-\item \code{all_results}   : list of per-candidate result objects when \code{auto = TRUE}
+\item \code{result["est"]}: point estimate (mean of w2 * y)
+\item \code{Entropy2}: step-2 entropy value
+\item \code{D1}, \code{D2}: diagnostics
+\item \code{model}, \code{r}: first-step spec
+}
+If \code{auto = TRUE}, also:
+\itemize{
+\item \code{best_model}: list(divergence, r)
+\item \code{leaderboard}: data.frame(divergence, r, Entropy2, D1, D2)
+\item \code{all_results}: list of per-candidate result lists
 }
 }
 \description{
-Two-step estimator integrating individual-level data with external summary
-data via generalized entropy balancing. The second step uses KL (fixed),
-and (for numerical compatibility with the original script) the second-step
-weights are computed from the FIRST-step linear predictor.
+Two-step estimator integrating individual-level data with external summary data
+via generalized entropy balancing. The second step is fixed to KL and, for
+numerical compatibility with the original code, the second-step weights are
+computed from the FIRST-step linear predictor (not from LMD2).
 }
