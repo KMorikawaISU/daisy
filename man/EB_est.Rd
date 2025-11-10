@@ -2,7 +2,7 @@
 % Please edit documentation in R/eb_est.R
 \name{EB_est}
 \alias{EB_est}
-\title{Entropy-Balancing Estimator (with optional auto selection)}
+\title{Generalized Entropy Balancing Estimator}
 \usage{
 EB_est(
   dat_int,
@@ -12,7 +12,9 @@ EB_est(
   divergence = "KL",
   r = 1,
   w_type = FALSE,
+  w_fixed = NULL,
   second_covariate = NULL,
+  non_regression = TRUE,
   link = "identity",
   M = 10,
   auto = FALSE,
@@ -20,35 +22,51 @@ EB_est(
 )
 }
 \arguments{
-\item{dat_int}{Data frame with column y_int and predictors.}
+\item{dat_int}{data.frame with internal variables. Must contain a column \code{y_int}
+(response) and predictors as remaining columns (any names).}
 
-\item{MU_int}{Matrix (n x p) of internal moments (1 in first col).}
+\item{MU_int}{numeric matrix (n x p). First column must be 1 (intercept).}
 
-\item{MU_ext}{Length-p target external moments (first is 1).}
+\item{MU_ext}{numeric length-p vector of target moments; first element must be 1.}
 
-\item{eta}{Scalar external target for step-2.}
+\item{eta}{numeric scalar: external target for step-2 (e.g., mean of outcome).}
 
-\item{divergence}{"KL","LW","QLS","TS".}
+\item{divergence}{character in {"KL","LW","QLS","TS"}; used when \code{auto = FALSE}.}
 
-\item{r}{Tuning parameter for LW/QLS/TS (ignored for KL).}
+\item{r}{numeric scalar for LW/QLS/TS (ignored for KL); used when \code{auto = FALSE}.}
 
-\item{w_type}{Logical; TRUE → weighted second-step regression.}
+\item{w_type}{logical; if TRUE, second-step regression is weighted by first-step w.}
 
-\item{second_covariate}{Optional extra covariates for step-2 constraints.}
+\item{w_fixed}{kept for API compatibility (unused).}
 
-\item{link}{"identity","logit","probit","gamma".}
+\item{second_covariate}{optional matrix for additional second-step constraints (unused here).}
 
-\item{M}{Threshold for step-2 Lagrange multiplier.}
+\item{non_regression}{kept for API compatibility (unused).}
 
-\item{auto}{If TRUE, searches across KL and the set of (LW/QLS/TS) with r in \code{r_set},
-by Entropy2, and picks the best.}
+\item{link}{character link for regression: "identity","logit","probit","gamma".}
 
-\item{r_set}{Numeric vector of candidate r's for auto=TRUE.}
+\item{M}{numeric threshold for second-step Lagrange multiplier box constraint.}
+
+\item{auto}{logical; if TRUE, search the best first-step model by Entropy2 over
+{KL} ∪ {LW,QLS,TS}×r_set.}
+
+\item{r_set}{numeric vector of r candidates used when \code{auto = TRUE}.}
 }
 \value{
-A list with \code{result[["est"]]} (point estimate), \code{Entropy2},
-selected model info (when \code{auto=TRUE}), and diagnostics.
+An object of class \code{"daisy_eb"} with fields:
+\itemize{
+\item \code{result["est"]} : point estimate (mean of w2.hat * y)
+\item \code{Entropy2}      : second-step entropy objective value
+\item \code{D1}, \code{D2}      : geometry diagnostics (Mahalanobis-based and chi-square-based)
+\item \code{model}, \code{r}    : chosen divergence and r (fixed case)
+\item \code{best_model}    : list(divergence, r) when \code{auto = TRUE}
+\item \code{leaderboard}   : data.frame(divergence, r, Entropy2, D1, D2) when \code{auto = TRUE}
+\item \code{all_results}   : list of per-candidate result objects when \code{auto = TRUE}
+}
 }
 \description{
-Entropy-Balancing Estimator (with optional auto selection)
+Two-step estimator integrating individual-level data with external summary
+data via generalized entropy balancing. The second step uses KL (fixed),
+and (for numerical compatibility with the original script) the second-step
+weights are computed from the FIRST-step linear predictor.
 }

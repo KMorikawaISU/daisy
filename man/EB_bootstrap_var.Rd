@@ -22,29 +22,30 @@ EB_bootstrap_var(
 )
 }
 \arguments{
-\item{dat_int}{Data frame with column y_int and predictors.}
+\item{dat_int}{data.frame with internal variables. Must contain a column \code{y_int}
+(response) and predictors as remaining columns (any names).}
 
-\item{MU_int}{Matrix (n x p) of internal moments (1 in first col).}
+\item{MU_int}{numeric matrix (n x p). First column must be 1 (intercept).}
 
-\item{MU_ext}{Length-p target external moments (first is 1).}
+\item{MU_ext}{numeric length-p vector of target moments; first element must be 1.}
 
-\item{eta}{Scalar external target for step-2.}
+\item{eta}{numeric scalar: external target for step-2 (e.g., mean of outcome).}
 
 \item{n_ext}{External sample size (n1).}
 
 \item{BB}{Bootstrap repetitions (B1=B2=BB).}
 
-\item{divergence}{"KL","LW","QLS","TS".}
+\item{divergence}{character in {"KL","LW","QLS","TS"}; used when \code{auto = FALSE}.}
 
-\item{r}{Tuning parameter for LW/QLS/TS (ignored for KL).}
+\item{r}{numeric scalar for LW/QLS/TS (ignored for KL); used when \code{auto = FALSE}.}
 
-\item{w_type}{Logical; TRUE → weighted second-step regression.}
+\item{w_type}{logical; if TRUE, second-step regression is weighted by first-step w.}
 
-\item{second_covariate}{Optional extra covariates for step-2 constraints.}
+\item{second_covariate}{optional matrix for additional second-step constraints (unused here).}
 
-\item{link}{"identity","logit","probit","gamma".}
+\item{link}{character link for regression: "identity","logit","probit","gamma".}
 
-\item{M}{Threshold for step-2 Lagrange multiplier.}
+\item{M}{numeric threshold for second-step Lagrange multiplier box constraint.}
 
 \item{external.boot}{TRUE resamples external summaries; FALSE fixes them.}
 

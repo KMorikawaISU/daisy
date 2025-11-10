@@ -2,23 +2,25 @@ Package: daisy
 Title: Data-Adaptive Integration with Summary Data
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: Estimation and bootstrap tools for generalized entropy
-    balancing that integrate individual-level data with biased summary
-    data. The second-step KL setting follows the original implementation
-    for numerical compatibility.
+    c(person(given = "Kosuke", family = "Morikawa", role = c("aut","cre"),
+             email = "your_email@example.com"))
+Description: Estimation and bootstrap tools for generalized entropy balancing 
+    that integrate individual-level data with biased summary data. 
+    The second-step KL setting follows the original implementation for numerical compatibility.
 License: MIT + file LICENSE
 URL: https://github.com/KMorikawaISU/daisy
 BugReports: https://github.com/KMorikawaISU/daisy/issues
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
-Imports: 
-    gsl,
+Imports:
     lamW,
+    gsl,
     stats
-Suggests: 
+Suggests:
     MASS,
     mvtnorm,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+LazyData: false
+LazyLoad: no
