@@ -1,32 +1,38 @@
 # R/eb_est.R
-# Estimation for generalized entropy balancing (GEB).
+# Estimation routines for generalized entropy balancing (GEB).
 # Defines:
-#   - EB_est_one(): run one candidate (divergence in {KL, LW, QLS, TS}, r given)
-#   - EB_est():     fixed model OR auto search over {KL} U {LW,QLS,TS} x r_set
+#   - EB_est_one(): run a single candidate (divergence ∈ {KL,LW,QLS,TS}, r given)
+#   - EB_est():     fixed model OR auto search over {KL} ∪ {LW,QLS,TS} × r_set
 #
-# NOTE: This file assumes ent.fun(), lmd.fun(), w.hat.fun() exist
-#       in other R files (e.g., R/entropy.R, R/dual.R) exactly as you have.
+# Assumes the following helpers are available in the package:
+#   ent.fun(), lmd.fun(), w.hat.fun()   (see R/entropy.R, R/dual.R)
+#
+# IMPORTANT: First-step moments MU_int / MU_ext MUST NOT include an intercept.
+# The second step uses its own intercept internally to normalize weights.
 
 #' Generalized Entropy Balancing Estimator
 #'
 #' Two-step estimator integrating individual-level data with external summary data
 #' via generalized entropy balancing. The second step is fixed to KL and, for
-#' numerical compatibility with the original code, the second-step weights are
+#' numerical compatibility with the original script, the second-step weights are
 #' computed from the FIRST-step linear predictor (not from LMD2).
 #'
-#' @param dat_int data.frame with internal variables. Must contain `y_int`.
-#' @param MU_int  matrix (n x p). First column must be 1 (intercept).
-#' @param MU_ext  numeric length-p vector. First element must be 1 (intercept).
-#' @param eta     numeric scalar: external target for step-2 (e.g., mean outcome).
+#' @param dat_int data.frame with internal variables. Must contain column `y_int`
+#'   (response) and predictors as remaining columns (any names).
+#' @param MU_int  numeric matrix (n x p) of first-step balancing features.
+#'   **Do NOT include an intercept column**.
+#' @param MU_ext  numeric length-p vector of target moments for the same features
+#'   as `MU_int`. **Do NOT include an intercept component**.
+#' @param eta     numeric scalar: external target used in step-2 (e.g., mean outcome).
 #' @param divergence character in {"KL","LW","QLS","TS"}; used when `auto = FALSE`.
 #' @param r       numeric; tuning for LW/QLS/TS (ignored for KL) when `auto = FALSE`.
-#' @param w_type  logical; if TRUE, internal regression is weighted by first-step w.
-#' @param w_fixed kept for compatibility (unused).
-#' @param second_covariate optional (unused here; interface compatibility).
-#' @param non_regression   kept for compatibility (unused).
+#' @param w_type  logical; if TRUE, the internal regression is weighted by first-step w.
+#' @param w_fixed kept for API compatibility (unused).
+#' @param second_covariate optional matrix for additional second-step constraints (unused here).
+#' @param non_regression   kept for API compatibility (unused).
 #' @param link    "identity" | "logit" | "probit" | "gamma".
 #' @param M       numeric; box bound for step-2 lambda.
-#' @param auto    logical; if TRUE, search over {KL} U {LW,QLS,TS} x r_set by Entropy2.
+#' @param auto    logical; if TRUE, search over {KL} ∪ {LW,QLS,TS} × r_set by Entropy2.
 #' @param r_set   numeric vector of r candidates used when `auto = TRUE`.
 #'
 #' @return Object of class `"daisy_eb"`. For a single run:
@@ -43,7 +49,7 @@
 #' \item `all_results`: list of per-candidate result lists
 #' }
 #' @export
-#' @importFrom stats runif cov lm glm binomial Gamma predict
+#' @importFrom stats runif cov lm glm binomial Gamma predict optim solve
 EB_est <- function(
     dat_int,
     MU_int,
@@ -68,10 +74,10 @@ EB_est <- function(
   if (length(MU_ext) != ncol(MU_int)) stop("length(MU_ext) must match ncol(MU_int).")
   if (!is.numeric(eta) || length(eta) != 1L) stop("eta must be a numeric scalar.")
 
-  # D1 is common across candidates
-  mu_diff <- drop(colMeans(MU_int) - MU_ext)
-  Sx      <- stats::cov(MU_int[, -1, drop = FALSE])
-  D1_val  <- c(sqrt(t(mu_diff[-1]) %*% solve(Sx) %*% mu_diff[-1]))
+  # D1: Mahalanobis distance using all balancing features (no intercept included here)
+  mu_diff <- drop(colMeans(MU_int) - MU_ext)            # length p
+  Sx      <- stats::cov(MU_int)                         # p x p
+  D1_val  <- as.numeric(sqrt(t(mu_diff) %*% solve(Sx) %*% mu_diff))
 
   # Fixed model path
   if (!isTRUE(auto)) {
@@ -86,7 +92,7 @@ EB_est <- function(
     return(ans)
   }
 
-  # Auto search: {KL} U {LW,QLS,TS} x r_set
+  # Auto search: {KL} ∪ {LW,QLS,TS} × r_set
   res_list <- list()
 
   # KL (r ignored)
@@ -136,10 +142,12 @@ EB_est <- function(
   return(best_obj)
 }
 
-# ---- internal worker (not exported) ----
-# Run one candidate. Keeps the original behavior:
-# * step-2 divergence = KL
-# * w2.hat is built from FIRST-step LMD (not LMD2).
+# ------------------------------------------------------------------------------
+# Internal worker: run one candidate (divergence, r)
+# Conventions (kept to reproduce the original script exactly):
+# * Second-step divergence is KL.
+# * Second-step weights are built from the FIRST-step linear predictor (LMD1),
+#   not from LMD2 (even though exp(LMD2) would be the natural alternative).
 EB_est_one <- function(
     dat_int, MU_int, MU_ext, eta,
     divergence = "KL", r = 1,
@@ -149,22 +157,22 @@ EB_est_one <- function(
   y_int <- dat_int$y_int
   n     <- nrow(MU_int)
 
-  # D1
+  # D1 (allow override for efficiency)
   if (is.null(D1_override)) {
     mu_diff <- drop(colMeans(MU_int) - MU_ext)
-    Sx      <- stats::cov(MU_int[, -1, drop = FALSE])
-    D1      <- c(sqrt(t(mu_diff[-1]) %*% solve(Sx) %*% mu_diff[-1]))
+    Sx      <- stats::cov(MU_int)
+    D1      <- as.numeric(sqrt(t(mu_diff) %*% solve(Sx) %*% mu_diff))
   } else {
     D1 <- D1_override
   }
 
-  # ---- 1st step (dual) ----
+  # ---- First step (dual optimization) ----
   k1 <- 0; ok1 <- FALSE; opt1 <- NULL
   while (k1 < 1000 && !ok1) {
     tries <- lapply(
       1:10,
       function(i) try(
-        optim(
+        stats::optim(
           stats::runif(ncol(MU_int), -0.1, 0.1),
           lmd.fun(MU_int, MU_ext, divergence = divergence, r = r),
           method = "BFGS"
@@ -193,11 +201,11 @@ EB_est_one <- function(
     return(out)
   }
 
-  LMD1 <- c(MU_int %*% opt1$par)
+  LMD1 <- as.numeric(MU_int %*% opt1$par)
   w1   <- w.hat.fun(LMD1, divergence, r = if (identical(divergence, "KL")) 1 else r)
   D2   <- sqrt(mean(w1^2) - 1)
 
-  # ---- internal regression ----
+  # ---- Internal regression (weighted if requested) ----
   ww <- if (isTRUE(w_type)) w1 else rep(1, n)
   reg_int <- switch(
     link,
@@ -223,10 +231,11 @@ EB_est_one <- function(
     return(out)
   }
 
-  # ---- 2nd step (KL) ----
+  # ---- Second step (KL) ----
+  # NOTE: Step-2 uses its own intercept to normalize weights; this is independent of MU_*.
   h    <- stats::predict(reg_int)
   calH <- w1 * h
-  eta_int <- cbind(1, calH)
+  eta_int <- cbind(1, calH)   # (intercept, H)
   eta_ext <- c(1, eta)
 
   k2 <- 0; ok2 <- FALSE; opt2 <- NULL
@@ -234,7 +243,7 @@ EB_est_one <- function(
     tries2 <- lapply(
       1:10,
       function(i) try(
-        optim(
+        stats::optim(
           stats::runif(ncol(eta_int), -0.1, 0.1),
           lmd.fun(eta_int, eta_ext, divergence = "KL", r = 0),
           method = "L-BFGS-B", lower = -M, upper = M
@@ -248,7 +257,7 @@ EB_est_one <- function(
     k2 <- k2 + 1
   }
 
-  # IMPORTANT: for numerical compatibility, w2 is built from FIRST-step LMD
+  # IMPORTANT: keep original numerical compatibility — build w2 from FIRST-step LMD
   w2   <- w.hat.fun(LMD1, divergence = "KL", r = 1)
   ent2 <- ent.fun(w2, divergence = "KL", r = 1)
   est  <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_

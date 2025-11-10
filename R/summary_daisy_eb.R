@@ -15,7 +15,6 @@
 #' @export
 #' @method summary daisy_eb
 summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
-  # Point estimate
   est <- NA_real_
   if (!is.null(object$result) && !is.null(object$result["est"])) {
     est <- as.numeric(object$result["est"])
@@ -23,7 +22,6 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
 
   auto_flag <- isTRUE(object$auto)
 
-  # Build diagnostics table
   from_all <- function(lst) {
     do.call(
       rbind,
@@ -98,7 +96,7 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
 }
 
 #' @export
-print.summary.daisy_eb <- function(x, digits = 4, ...) {
+print.summary_daisy_eb <- function(x, digits = 4, ...) {
   cat("daisy::EB_est summary\n")
   if (!is.null(x$est) && is.finite(x$est)) {
     cat(sprintf("  Point estimate: %.*f\n", digits, x$est))
