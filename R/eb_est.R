@@ -1,5 +1,5 @@
 # R/eb_est.R
-# Estimation routines for generalized entropy balancing (GEB).
+# Estimation routines for generalized entropy balancing (GEB)
 # Defines:
 #   - EB_est_one(): run a single candidate (divergence ∈ {KL,LW,QLS,TS}, r given)
 #   - EB_est():     fixed model OR auto search over {KL} ∪ {LW,QLS,TS} × r_set
