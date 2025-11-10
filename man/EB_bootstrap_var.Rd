@@ -22,13 +22,16 @@ EB_bootstrap_var(
 )
 }
 \arguments{
-\item{dat_int}{data.frame with internal variables. Must contain \code{y_int}.}
+\item{dat_int}{data.frame with internal variables. Must contain column \code{y_int}
+(response) and predictors as remaining columns (any names).}
 
-\item{MU_int}{matrix (n x p). First column must be 1 (intercept).}
+\item{MU_int}{numeric matrix (n x p) of first-step balancing features.
+\strong{Do NOT include an intercept column}.}
 
-\item{MU_ext}{numeric length-p vector. First element must be 1 (intercept).}
+\item{MU_ext}{numeric length-p vector of target moments for the same features
+as \code{MU_int}. \strong{Do NOT include an intercept component}.}
 
-\item{eta}{numeric scalar: external target for step-2 (e.g., mean outcome).}
+\item{eta}{numeric scalar: external target used in step-2 (e.g., mean outcome).}
 
 \item{n_ext}{External sample size (n1).}
 
@@ -38,9 +41,9 @@ EB_bootstrap_var(
 
 \item{r}{numeric; tuning for LW/QLS/TS (ignored for KL) when \code{auto = FALSE}.}
 
-\item{w_type}{logical; if TRUE, internal regression is weighted by first-step w.}
+\item{w_type}{logical; if TRUE, the internal regression is weighted by first-step w.}
 
-\item{second_covariate}{optional (unused here; interface compatibility).}
+\item{second_covariate}{optional matrix for additional second-step constraints (unused here).}
 
 \item{link}{"identity" | "logit" | "probit" | "gamma".}
 

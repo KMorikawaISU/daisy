@@ -49,7 +49,7 @@
 #' \item `all_results`: list of per-candidate result lists
 #' }
 #' @export
-#' @importFrom stats runif cov lm glm binomial Gamma predict optim solve
+#' @importFrom stats runif cov lm glm binomial Gamma predict optim
 EB_est <- function(
     dat_int,
     MU_int,
@@ -75,9 +75,9 @@ EB_est <- function(
   if (!is.numeric(eta) || length(eta) != 1L) stop("eta must be a numeric scalar.")
 
   # D1: Mahalanobis distance using all balancing features (no intercept included here)
-  mu_diff <- drop(colMeans(MU_int) - MU_ext)            # length p
-  Sx      <- stats::cov(MU_int)                         # p x p
-  D1_val  <- as.numeric(sqrt(t(mu_diff) %*% solve(Sx) %*% mu_diff))
+  mu_diff <- drop(colMeans(MU_int) - MU_ext)          # length p
+  Sx      <- stats::cov(MU_int)                       # p x p
+  D1_val  <- as.numeric(sqrt(t(mu_diff) %*% base::solve(Sx) %*% mu_diff))
 
   # Fixed model path
   if (!isTRUE(auto)) {
@@ -161,7 +161,7 @@ EB_est_one <- function(
   if (is.null(D1_override)) {
     mu_diff <- drop(colMeans(MU_int) - MU_ext)
     Sx      <- stats::cov(MU_int)
-    D1      <- as.numeric(sqrt(t(mu_diff) %*% solve(Sx) %*% mu_diff))
+    D1      <- as.numeric(sqrt(t(mu_diff) %*% base::solve(Sx) %*% mu_diff))
   } else {
     D1 <- D1_override
   }
@@ -203,7 +203,10 @@ EB_est_one <- function(
 
   LMD1 <- as.numeric(MU_int %*% opt1$par)
   w1   <- w.hat.fun(LMD1, divergence, r = if (identical(divergence, "KL")) 1 else r)
-  D2   <- sqrt(mean(w1^2) - 1)
+
+  # D2 with guard: if the argument of sqrt is negative or non-finite, set NA
+  d2_arg <- mean(w1^2) - 1
+  D2 <- if (!is.finite(d2_arg) || d2_arg < 0) NA_real_ else sqrt(d2_arg)
 
   # ---- Internal regression (weighted if requested) ----
   ww <- if (isTRUE(w_type)) w1 else rep(1, n)

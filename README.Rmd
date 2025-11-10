@@ -34,10 +34,10 @@ pak::pak("KMorikawaISU/daisy")
 remotes::install_github("KMorikawaISU/daisy")
 ```
 
-## Quick start (paper-style toy data; no intercept in MU_*)
+## Quick start (paper-style toy data)
 
-> Simplest setting: **x1 ~ N(0,1)**, **x2 ~ Bern(0.5)**, **y | x ~ N(0.5*x1 − x2, 1)**,  
-> internal **n = 200**, external summaries **n1 = 2000**.  
+> Simplest setting: **[Internal] x1 ~ N(0,1)**, **[External] x1 ~ N(0.5,1)**, **x2 ~ Bern(0.5)**, **y | x ~ N(0.5*x1 − x2, 1)**,  
+> Sample sizes: [internal] **n = 200**, [external] **n1 = 2000**.  
 > This chunk is **not executed** to keep the README light (`eval = FALSE`).
 
 ```{r, eval=FALSE}
@@ -52,7 +52,7 @@ x1_int <- rnorm(n, 0, 1)
 x2_int <- rbinom(n, 1, 0.5)
 y_int  <- rnorm(n, 0.5 * x1_int - x2_int, 1)
 
-x1_ext <- rnorm(n1, 0, 1)
+x1_ext <- rnorm(n1, 0.5, 1)
 x2_ext <- rbinom(n1, 1, 0.5)
 y_ext  <- rnorm(n1, 0.5 * x1_ext - x2_ext, 1)
 

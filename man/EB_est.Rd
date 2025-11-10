@@ -22,31 +22,34 @@ EB_est(
 )
 }
 \arguments{
-\item{dat_int}{data.frame with internal variables. Must contain \code{y_int}.}
+\item{dat_int}{data.frame with internal variables. Must contain column \code{y_int}
+(response) and predictors as remaining columns (any names).}
 
-\item{MU_int}{matrix (n x p). First column must be 1 (intercept).}
+\item{MU_int}{numeric matrix (n x p) of first-step balancing features.
+\strong{Do NOT include an intercept column}.}
 
-\item{MU_ext}{numeric length-p vector. First element must be 1 (intercept).}
+\item{MU_ext}{numeric length-p vector of target moments for the same features
+as \code{MU_int}. \strong{Do NOT include an intercept component}.}
 
-\item{eta}{numeric scalar: external target for step-2 (e.g., mean outcome).}
+\item{eta}{numeric scalar: external target used in step-2 (e.g., mean outcome).}
 
 \item{divergence}{character in {"KL","LW","QLS","TS"}; used when \code{auto = FALSE}.}
 
 \item{r}{numeric; tuning for LW/QLS/TS (ignored for KL) when \code{auto = FALSE}.}
 
-\item{w_type}{logical; if TRUE, internal regression is weighted by first-step w.}
+\item{w_type}{logical; if TRUE, the internal regression is weighted by first-step w.}
 
-\item{w_fixed}{kept for compatibility (unused).}
+\item{w_fixed}{kept for API compatibility (unused).}
 
-\item{second_covariate}{optional (unused here; interface compatibility).}
+\item{second_covariate}{optional matrix for additional second-step constraints (unused here).}
 
-\item{non_regression}{kept for compatibility (unused).}
+\item{non_regression}{kept for API compatibility (unused).}
 
 \item{link}{"identity" | "logit" | "probit" | "gamma".}
 
 \item{M}{numeric; box bound for step-2 lambda.}
 
-\item{auto}{logical; if TRUE, search over {KL} U {LW,QLS,TS} x r_set by Entropy2.}
+\item{auto}{logical; if TRUE, search over {KL} ∪ {LW,QLS,TS} × r_set by Entropy2.}
 
 \item{r_set}{numeric vector of r candidates used when \code{auto = TRUE}.}
 }
@@ -68,6 +71,6 @@ If \code{auto = TRUE}, also:
 \description{
 Two-step estimator integrating individual-level data with external summary data
 via generalized entropy balancing. The second step is fixed to KL and, for
-numerical compatibility with the original code, the second-step weights are
+numerical compatibility with the original script, the second-step weights are
 computed from the FIRST-step linear predictor (not from LMD2).
 }
