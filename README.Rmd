@@ -36,80 +36,57 @@ remotes::install_github("KMorikawaISU/daisy")
 
 ## Quick start (paper-style toy data)
 
-> Simplest setting in the paper: **x1 ~ N(0,1)**, **x2 ~ Bern(0.5)**,  
-> **y | x ~ N(0.5*x1 - x2, 1)**, internal **n = 200**, external summaries **n1 = 2000**.  
+> Simplest setting: **x1 ~ N(0,1)**, **x2 ~ Bern(0.5)**, **y | x ~ N(0.5*x1 - x2, 1)**,  
+> internal **n = 200**, external summaries **n1 = 2000**.  
 > To keep the README light, this chunk is **not executed** (`eval = FALSE`).
 
 ```{r, eval=FALSE}
 library(daisy)
 
-## -------------------------------
-## 1) Generate toy data (simple)
-## -------------------------------
+## 1) Generate toy data
 set.seed(1)
 n  <- 200
 n1 <- 2000
 
-# Internal (no labels)
 x1_int <- rnorm(n, 0, 1)
 x2_int <- rbinom(n, 1, 0.5)
 y_int  <- rnorm(n, 0.5 * x1_int - x2_int, 1)
 
-# External (summary only; same DGP, mean of x1 = 0)
 x1_ext <- rnorm(n1, 0, 1)
 x2_ext <- rbinom(n1, 1, 0.5)
 y_ext  <- rnorm(n1, 0.5 * x1_ext - x2_ext, 1)
 
-# dat_int: data.frame with y_int and predictors
 dat_int <- data.frame(
   x_int.1 = x1_int,
   x_int.2 = x2_int,
   y_int   = y_int
 )
 
-# MU_int: DO NOT include a constant column (intercept is added internally)
-MU_int <- cbind(x1_int, x1_int^2, x2_int)
+MU_int <- cbind(1, x1_int, x1_int^2, x2_int)
+MU_ext <- c(1, mean(x1_ext), mean(x1_ext^2), mean(x2_ext))
+eta    <- mean(y_ext)
 
-# MU_ext: external moments corresponding to MU_int (no leading 1)
-MU_ext <- c(mean(x1_ext), mean(x1_ext^2), mean(x2_ext))
-
-# eta: external target for step-2 (mean of outcome)
-eta <- mean(y_ext)
-
-## -------------------------------
-## 2) Estimation (auto model search)
-## -------------------------------
+## 2) Estimation with auto model search
 fit <- EB_est(
   dat_int, MU_int, MU_ext, eta,
   auto  = TRUE,
   r_set = c(0.01, 0.1, 0.5, 1),
-  link  = "identity"    # or "logit", "probit", "gamma"
+  link  = "identity"
 )
 
-fit$best_model      # list(divergence=..., r=...)
-fit$result["est"]   # point estimate
+## 3) Inspect results
+fit$best_model
+fit$result["est"]
 fit$Entropy2
+summary(fit)  
 
-# Compact report (lm-like)
-summary(fit)
-# Example (illustrative):
-# Summary of eb_est object
-#   model divergence    r   D1 D1_lt_1   D2 D2_lt_1 Entropy2    est
-#       1        KL    1 0.72    TRUE 0.95    TRUE    12.31  -0.10
-#       2        LW 0.10 1.08   FALSE 0.90    TRUE    12.85  -0.09
-# Selected (best) model index: 2
-
-## -------------------------------
-## 3) Bootstrap variance (no auto)
-##    fix the selected model from step 2
-## -------------------------------
+## 4) Bootstrap variance (no auto; fix the selected model)
 bt <- EB_bootstrap_var(
   dat_int, MU_int, MU_ext, eta,
-  n_ext = n1,                    
-  BB    = 200,
+  n_ext = n1, BB = 200,
   divergence    = fit$best_model$divergence,
   r             = fit$best_model$r,
-  external.boot = TRUE           # TRUE: resample external summaries; FALSE: fix them
+  external.boot = TRUE
 )
 
 bt$bootstrap_se
@@ -119,4 +96,3 @@ bt$ci_percentile_95
 ## Notes
 
 - Step-2 uses KL (fixed). For numerical compatibility with the original implementation, the second-step weights are built from the **first-step** linear predictor.
-- **Input convention**: `MU_int` must **not** include constant columns (e.g., a column of 1s). If a constant is supplied, it is dropped with a warning; an intercept is added internally by `EB_est()`.
