@@ -49,7 +49,7 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
           zz_est <- as.numeric(z$result["est"])
         }
         data.frame(
-          est        = zz_est,
+          estimate   = zz_est,
           divergence = z$model,
           r          = if (identical(z$model, "KL")) NA_real_ else z$r,
           Entropy2   = z$Entropy2,
@@ -84,7 +84,7 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
     } else {
       # Minimal fallback (should rarely happen)
       tbl <- data.frame(
-        est        = est,
+        estimate   = est,
         divergence = object$model,
         r          = if (identical(object$model, "KL")) NA_real_ else object$r,
         Entropy2   = object$Entropy2,
@@ -108,7 +108,7 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
   } else {
     # Fixed-model path: single row with est included
     tbl <- data.frame(
-      est        = est,
+      estimate   = est,
       divergence = object$model,
       r          = if (identical(object$model, "KL")) NA_real_ else object$r,
       Entropy2   = object$Entropy2,
@@ -127,7 +127,7 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
   tbl <- tbl[, wanted, drop = FALSE]
 
   out <- list(
-    est      = est,       # selected run's point estimate
+    estimate = est,       # selected run's point estimate
     selected = sel,       # selected or fixed model
     table    = tbl,       # table with per-model est at the leftmost column
     auto     = auto_flag

@@ -62,7 +62,7 @@ MU_ext <- c(mean(x1_ext), mean(x1_ext^2), mean(x2_ext)) # external means for the
 
 eta <- mean(y_ext)                                       # step-2 target (mean of outcome)
 
-## 3) Estimation with auto model search
+## 3-1) Estimation with auto model search
 fit <- EB_est(
   dat_int, MU_int, MU_ext, eta,
   auto  = TRUE,
@@ -77,6 +77,20 @@ fit$Entropy2
 
 ## Human-readable summary (point estimate + selected model + per-model Entropy2/D1/D2)
 summary(fit)
+
+
+## 3-2) Estimation with specified model
+fit <- EB_est(
+  dat_int, MU_int, MU_ext, eta,
+  auto       = FALSE,
+  divergence = "WL",
+  r          = 0.1,
+  link       = "identity"
+)
+
+## Human-readable summary (point estimate + selected model + per-model Entropy2/D1/D2)
+summary(fit)
+
 
 ## 4) Bootstrap variance (no auto; fix the selected model)
 bt <- EB_bootstrap_var(
