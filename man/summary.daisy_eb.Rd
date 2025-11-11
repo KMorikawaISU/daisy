@@ -10,22 +10,31 @@
 \item{object}{An object returned by EB_est() (class "daisy_eb").}
 
 \item{digits}{Number of digits to carry for numeric fields in the returned object.
-(The print method controls printed rounding.)}
+(The print method controls on-screen rounding.)}
 
 \item{...}{Unused.}
 }
 \value{
 An object of class "summary.daisy_eb" with elements:
 \itemize{
-\item \code{est}: numeric point estimate (mean of w2 * y).
-\item \code{selected}: list(divergence, r) for the chosen model.
-\item \code{table}: data.frame with (divergence, r, Entropy2, D1, D2).
-\item \code{auto}: logical flag (TRUE if auto search was used).
+\item \code{est} numeric point estimate for the \emph{selected} (or only) run.
+\item \code{selected} list(divergence, r) describing the selected model
+when \code{auto = TRUE}, or the fixed model when \code{auto = FALSE}.
+\item \code{table} data.frame with columns
+\code{est}, \code{divergence}, \code{r}, \code{Entropy2}, \code{D1}, \code{D2}.
+\item \code{auto} logical indicating whether auto model search was used.
 }
 }
 \description{
-Builds a compact summary object for printing. If \code{auto = TRUE}, it
-includes the selected first-step model and a leaderboard with
-Entropy2, D1, and D2 for all candidates. If \code{auto = FALSE}, it shows
-the fixed model with those diagnostics.
+Creates a summary object containing:
+\itemize{
+\item the overall point estimate (for the returned/selected run),
+\item the selected model information (if auto = TRUE),
+\item and a leaderboard-like table that now includes the per-model point
+estimate \code{est} as the leftmost column.
+}
+}
+\details{
+If \code{auto = TRUE}, the table includes \emph{all} candidate models; otherwise, it
+contains only the fixed model. Higher Entropy2 is considered better.
 }

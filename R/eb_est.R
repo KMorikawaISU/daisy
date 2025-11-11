@@ -4,11 +4,12 @@
 #   - EB_est_one(): run a single candidate (divergence ∈ {KL,LW,QLS,TS}, r given)
 #   - EB_est():     fixed model OR auto search over {KL} ∪ {LW,QLS,TS} × r_set
 #
+# IMPORTANT: The user should pass MU_int and MU_ext WITHOUT an intercept.
+# Internally, the first-step EB augments an intercept column (1) to the design
+# and a leading 1 to MU_ext. The second step adds its own intercept as (1, H).
+#
 # Assumes the following helpers are available in the package:
 #   ent.fun(), lmd.fun(), w.hat.fun()   (see R/entropy.R, R/dual.R)
-#
-# IMPORTANT: First-step moments MU_int / MU_ext MUST NOT include an intercept.
-# The second step uses its own intercept internally to normalize weights.
 
 #' Generalized Entropy Balancing Estimator
 #'
@@ -20,9 +21,9 @@
 #' @param dat_int data.frame with internal variables. Must contain column `y_int`
 #'   (response) and predictors as remaining columns (any names).
 #' @param MU_int  numeric matrix (n x p) of first-step balancing features.
-#'   **Do NOT include an intercept column**.
+#'   **Do NOT include an intercept column** (the function will add it internally).
 #' @param MU_ext  numeric length-p vector of target moments for the same features
-#'   as `MU_int`. **Do NOT include an intercept component**.
+#'   as `MU_int`. **Do NOT include an intercept component** (the function will add it internally).
 #' @param eta     numeric scalar: external target used in step-2 (e.g., mean outcome).
 #' @param divergence character in {"KL","LW","QLS","TS"}; used when `auto = FALSE`.
 #' @param r       numeric; tuning for LW/QLS/TS (ignored for KL) when `auto = FALSE`.
@@ -39,7 +40,7 @@
 #' \itemize{
 #' \item `result["est"]`: point estimate (mean of w2 * y)
 #' \item `Entropy2`: step-2 entropy value
-#' \item `D1`, `D2`: diagnostics
+#' \item `D1`, `D2`: diagnostics (D1 from features WITHOUT intercept)
 #' \item `model`, `r`: first-step spec
 #' }
 #' If `auto = TRUE`, also:
@@ -74,7 +75,7 @@ EB_est <- function(
   if (length(MU_ext) != ncol(MU_int)) stop("length(MU_ext) must match ncol(MU_int).")
   if (!is.numeric(eta) || length(eta) != 1L) stop("eta must be a numeric scalar.")
 
-  # D1: Mahalanobis distance using all balancing features (no intercept included here)
+  # D1: Mahalanobis distance using features WITHOUT intercept (by design)
   mu_diff <- drop(colMeans(MU_int) - MU_ext)          # length p
   Sx      <- stats::cov(MU_int)                       # p x p
   D1_val  <- as.numeric(sqrt(t(mu_diff) %*% base::solve(Sx) %*% mu_diff))
@@ -143,7 +144,10 @@ EB_est <- function(
 }
 
 # ------------------------------------------------------------------------------
-# Internal worker: run one candidate (divergence, r)
+# Internal worker: run one candidate (divergence, r).
+# USER INPUTS MUST NOT include intercept in MU_int/MU_ext. Here we ADD the
+# intercept internally ONLY for the first-step EB dual.
+#
 # Conventions (kept to reproduce the original script exactly):
 # * Second-step divergence is KL.
 # * Second-step weights are built from the FIRST-step linear predictor (LMD1),
@@ -157,7 +161,7 @@ EB_est_one <- function(
   y_int <- dat_int$y_int
   n     <- nrow(MU_int)
 
-  # D1 (allow override for efficiency)
+  # D1 (allow override for efficiency); D1 uses features WITHOUT intercept
   if (is.null(D1_override)) {
     mu_diff <- drop(colMeans(MU_int) - MU_ext)
     Sx      <- stats::cov(MU_int)
@@ -167,14 +171,18 @@ EB_est_one <- function(
   }
 
   # ---- First step (dual optimization) ----
+  # Internally add intercept to both the design and target moments:
+  X1  <- cbind(1, MU_int)         # n x (p+1)
+  MU1 <- c(1, MU_ext)             # length p+1
+
   k1 <- 0; ok1 <- FALSE; opt1 <- NULL
   while (k1 < 1000 && !ok1) {
     tries <- lapply(
       1:10,
       function(i) try(
         stats::optim(
-          stats::runif(ncol(MU_int), -0.1, 0.1),
-          lmd.fun(MU_int, MU_ext, divergence = divergence, r = r),
+          stats::runif(ncol(X1), -0.1, 0.1),                 # dimension matches (p+1)
+          lmd.fun(X1, MU1, divergence = divergence, r = r),  # pass augmented X/MU
           method = "BFGS"
         ),
         silent = TRUE
@@ -201,7 +209,8 @@ EB_est_one <- function(
     return(out)
   }
 
-  LMD1 <- as.numeric(MU_int %*% opt1$par)
+  # FIRST-step linear predictor uses the augmented design:
+  LMD1 <- as.numeric(X1 %*% opt1$par)
   w1   <- w.hat.fun(LMD1, divergence, r = if (identical(divergence, "KL")) 1 else r)
 
   # D2 with guard: if the argument of sqrt is negative or non-finite, set NA
@@ -235,7 +244,7 @@ EB_est_one <- function(
   }
 
   # ---- Second step (KL) ----
-  # NOTE: Step-2 uses its own intercept to normalize weights; this is independent of MU_*.
+  # Step-2 uses its own intercept to normalize weights; independent of MU_*.
   h    <- stats::predict(reg_int)
   calH <- w1 * h
   eta_int <- cbind(1, calH)   # (intercept, H)

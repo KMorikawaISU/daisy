@@ -4,7 +4,7 @@
 \alias{print.summary.daisy_eb}
 \title{Print method for summary.daisy_eb}
 \usage{
-\method{print}{summary.daisy_eb}(x, digits = 4, ...)
+\method{print}{summary.daisy_eb}(x, digits = getOption("digits"), ...)
 }
 \arguments{
 \item{x}{A summary.daisy_eb object (returned by summary()).}
@@ -14,6 +14,10 @@
 \item{...}{Unused.}
 }
 \description{
-Always prints the point estimate and the model choice (auto or fixed),
-followed by a table of Entropy2/D1/D2. Higher Entropy2 is better.
+Nicely prints:
+\itemize{
+\item the point estimate for the selected (or fixed) run,
+\item the selected model (auto) or the fixed model,
+\item a table with per-model point estimates (est) and diagnostics.
+}
 }

@@ -26,10 +26,10 @@ EB_est(
 (response) and predictors as remaining columns (any names).}
 
 \item{MU_int}{numeric matrix (n x p) of first-step balancing features.
-\strong{Do NOT include an intercept column}.}
+\strong{Do NOT include an intercept column} (the function will add it internally).}
 
 \item{MU_ext}{numeric length-p vector of target moments for the same features
-as \code{MU_int}. \strong{Do NOT include an intercept component}.}
+as \code{MU_int}. \strong{Do NOT include an intercept component} (the function will add it internally).}
 
 \item{eta}{numeric scalar: external target used in step-2 (e.g., mean outcome).}
 
@@ -58,7 +58,7 @@ Object of class \code{"daisy_eb"}. For a single run:
 \itemize{
 \item \code{result["est"]}: point estimate (mean of w2 * y)
 \item \code{Entropy2}: step-2 entropy value
-\item \code{D1}, \code{D2}: diagnostics
+\item \code{D1}, \code{D2}: diagnostics (D1 from features WITHOUT intercept)
 \item \code{model}, \code{r}: first-step spec
 }
 If \code{auto = TRUE}, also:

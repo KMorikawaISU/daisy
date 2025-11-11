@@ -26,10 +26,10 @@ EB_bootstrap_var(
 (response) and predictors as remaining columns (any names).}
 
 \item{MU_int}{numeric matrix (n x p) of first-step balancing features.
-\strong{Do NOT include an intercept column}.}
+\strong{Do NOT include an intercept column} (the function will add it internally).}
 
 \item{MU_ext}{numeric length-p vector of target moments for the same features
-as \code{MU_int}. \strong{Do NOT include an intercept component}.}
+as \code{MU_int}. \strong{Do NOT include an intercept component} (the function will add it internally).}
 
 \item{eta}{numeric scalar: external target used in step-2 (e.g., mean outcome).}
 
