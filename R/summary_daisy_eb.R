@@ -1,15 +1,16 @@
 # R/summary_daisy_eb.R
 # S3 summary() and print() for objects returned by EB_est() (class "daisy_eb").
-# This version adds the per-model point estimate column ("est") to the table,
-# positioned to the LEFT of "divergence", as requested.
+# This version uses the name "estimate" consistently for:
+#   - the top-level point estimate in the summary object, and
+#   - the per-model point estimate column in the leaderboard table.
 
 #' Summarize EB_est results (daisy)
 #'
 #' Creates a summary object containing:
 #'   - the overall point estimate (for the returned/selected run),
 #'   - the selected model information (if auto = TRUE),
-#'   - and a leaderboard-like table that now includes the per-model point
-#'     estimate `est` as the leftmost column.
+#'   - and a leaderboard-like table that includes the per-model point
+#'     estimate `estimate` as the leftmost column.
 #'
 #' If `auto = TRUE`, the table includes *all* candidate models; otherwise, it
 #' contains only the fixed model. Higher Entropy2 is considered better.
@@ -20,36 +21,37 @@
 #' @param ... Unused.
 #' @return An object of class "summary.daisy_eb" with elements:
 #'   \itemize{
-#'     \item \code{est} numeric point estimate for the *selected* (or only) run.
+#'     \item \code{estimate} numeric point estimate for the *selected* (or only) run.
 #'     \item \code{selected} list(divergence, r) describing the selected model
 #'           when `auto = TRUE`, or the fixed model when `auto = FALSE`.
 #'     \item \code{table} data.frame with columns
-#'           \code{est}, \code{divergence}, \code{r}, \code{Entropy2}, \code{D1}, \code{D2}.
+#'           \code{estimate}, \code{divergence}, \code{r}, \code{Entropy2}, \code{D1}, \code{D2}.
 #'     \item \code{auto} logical indicating whether auto model search was used.
 #'   }
 #' @export
 #' @method summary daisy_eb
 summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
   # Extract the point estimate for the returned object (selected run or fixed run)
-  est <- NA_real_
+  estimate <- NA_real_
   if (!is.null(object$result) && !is.null(object$result["est"])) {
-    est <- as.numeric(object$result["est"])
+    # Note: EB_est_one() stores the scalar under name "est"; convert to "estimate" here.
+    estimate <- as.numeric(object$result["est"])
   }
 
   auto_flag <- isTRUE(object$auto)
 
-  # Build a table from a list of candidate results (all_results), including est
-  from_all_with_est <- function(lst) {
+  # Build a table from a list of candidate results (all_results), including per-model estimate
+  from_all_with_estimate <- function(lst) {
     do.call(
       rbind,
       lapply(lst, function(z) {
-        # Per-candidate point estimate if available
-        zz_est <- NA_real_
+        # Per-candidate point estimate if available (stored as "est" in EB_est_one())
+        z_est <- NA_real_
         if (!is.null(z$result) && !is.null(z$result["est"])) {
-          zz_est <- as.numeric(z$result["est"])
+          z_est <- as.numeric(z$result["est"])
         }
         data.frame(
-          estimate   = zz_est,
+          estimate   = z_est,
           divergence = z$model,
           r          = if (identical(z$model, "KL")) NA_real_ else z$r,
           Entropy2   = z$Entropy2,
@@ -64,27 +66,24 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
   if (auto_flag) {
     if (!is.null(object$all_results)) {
       # Preferred path: reconstruct full table from all_results
-      tbl <- from_all_with_est(object$all_results)
+      tbl <- from_all_with_estimate(object$all_results)
     } else if (!is.null(object$leaderboard)) {
-      # Fallback: we only have leaderboard (likely missing per-model est)
+      # Fallback: leaderboard may be missing per-model estimates
       tbl <- object$leaderboard
       if ("model" %in% names(tbl) && !("divergence" %in% names(tbl))) {
         names(tbl)[names(tbl) == "model"] <- "divergence"
       }
-      # Insert est column as NA if we cannot recover per-model estimates
-      if (!("est" %in% names(tbl))) {
-        tbl$est <- NA_real_
+      if (!("estimate" %in% names(tbl))) {
+        tbl$estimate <- NA_real_
       }
-      # Ensure all required columns exist
       if (!("D1" %in% names(tbl))) tbl$D1 <- object$D1
       if (!("D2" %in% names(tbl))) tbl$D2 <- object$D2
-      # Reorder columns to: est, divergence, r, Entropy2, D1, D2
       have <- names(tbl)
-      tbl <- tbl[, intersect(c("est","divergence","r","Entropy2","D1","D2"), have), drop = FALSE]
+      tbl  <- tbl[, intersect(c("estimate","divergence","r","Entropy2","D1","D2"), have), drop = FALSE]
     } else {
-      # Minimal fallback (should rarely happen)
+      # Minimal fallback (rare)
       tbl <- data.frame(
-        estimate   = est,
+        estimate   = estimate,
         divergence = object$model,
         r          = if (identical(object$model, "KL")) NA_real_ else object$r,
         Entropy2   = object$Entropy2,
@@ -106,9 +105,9 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
     }
 
   } else {
-    # Fixed-model path: single row with est included
+    # Fixed-model path: single row with estimate included
     tbl <- data.frame(
-      estimate   = est,
+      estimate   = estimate,
       divergence = object$model,
       r          = if (identical(object$model, "KL")) NA_real_ else object$r,
       Entropy2   = object$Entropy2,
@@ -123,13 +122,13 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
   }
 
   # Keep only the intended columns (in the required order)
-  wanted <- intersect(c("est","divergence","r","Entropy2","D1","D2"), names(tbl))
+  wanted <- intersect(c("estimate","divergence","r","Entropy2","D1","D2"), names(tbl))
   tbl <- tbl[, wanted, drop = FALSE]
 
   out <- list(
-    estimate = est,       # selected run's point estimate
+    estimate = estimate,  # selected run's point estimate
     selected = sel,       # selected or fixed model
-    table    = tbl,       # table with per-model est at the leftmost column
+    table    = tbl,       # table with per-model estimate at the leftmost column
     auto     = auto_flag
   )
   attr(out, "digits") <- digits
@@ -142,7 +141,7 @@ summary.daisy_eb <- function(object, digits = getOption("digits"), ...) {
 #' Nicely prints:
 #'   - the point estimate for the selected (or fixed) run,
 #'   - the selected model (auto) or the fixed model,
-#'   - a table with per-model point estimates (est) and diagnostics.
+#'   - a table with per-model point estimates (estimate) and diagnostics.
 #'
 #' @param x A summary.daisy_eb object (returned by summary()).
 #' @param digits Number of digits for printing numeric values.
@@ -157,8 +156,8 @@ print.summary.daisy_eb <- function(x, digits = getOption("digits"), ...) {
   cat("daisy::EB_est summary\n")
 
   # Selected (or fixed) run's point estimate
-  if (!is.null(x$est) && is.finite(x$est)) {
-    cat(sprintf("  Point estimate (selected): %.*f\n", max(0, digits - 2L), x$est))
+  if (!is.null(x$estimate) && is.finite(x$estimate)) {
+    cat(sprintf("  Point estimate (selected): %.*f\n", max(0, digits - 2L), x$estimate))
   } else {
     cat("  Point estimate (selected): NA\n")
   }
@@ -174,10 +173,10 @@ print.summary.daisy_eb <- function(x, digits = getOption("digits"), ...) {
   }
   cat("\n\n")
 
-  # Leaderboard / diagnostics table with per-model est
+  # Leaderboard / diagnostics table with per-model estimate
   cat("Diagnostics by model (higher Entropy2 is better):\n")
   df <- x$table
-  num_cols <- intersect(names(df), c("Estimate","r","Entropy2","D1","D2"))
+  num_cols <- intersect(names(df), c("estimate","r","Entropy2","D1","D2"))
   for (cc in num_cols) df[[cc]] <- round(df[[cc]], max(0, digits - 2L))
   print(df, row.names = FALSE)
 
