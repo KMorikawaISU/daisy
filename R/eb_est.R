@@ -159,7 +159,6 @@ EB_est_one <- function(
     D1_override = NULL
 ) {
   y_int <- dat_int$y_int
-  n     <- nrow(MU_int)
 
   # D1 (allow override for efficiency); D1 uses features WITHOUT intercept
   if (is.null(D1_override)) {
@@ -268,9 +267,8 @@ EB_est_one <- function(
     if (!inherits(opt2, "try-error") && opt2$convergence == 0 && sum(opt2$par >= M) < 1) ok2 <- TRUE
     k2 <- k2 + 1
   }
-
-  # IMPORTANT: keep original numerical compatibility — build w2 from FIRST-step LMD
-  w2   <- w.hat.fun(LMD1, divergence = "KL", r = 1)
+  LMD2 <- as.numeric(eta_int  %*% opt2$par)
+  w2   <- w.hat.fun(LMD2, "KL", r =1)
   ent2 <- ent.fun(w2, divergence = "KL", r = 1)
   est  <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_
 
