@@ -18,13 +18,15 @@ lmd.fun <- function(X, MU, divergence, r = 1) {
     if (divergence == "KL") {
       return(- drop(crossprod(lmd, MU)) + mean(exp(LMD)))
     } else if (divergence == "LW") {
-      lw <- lambertW0(r * exp(LMD))
+      # principal branch of Lambert W from {lamW}; must be called with namespace
+      lw <- lamW::lambertW0(r * exp(LMD))
       return(- drop(crossprod(lmd, MU)) + mean((lw^2 + 2 * lw) / (2 * r)))
     } else if (divergence == "QLS") {
       qls <- sqrt(1 + 4 * r * exp(LMD))
       return(- drop(crossprod(lmd, MU)) + mean((qls - log((1 + qls) / 2)) / r))
     } else if (divergence == "TS") {
-      ts <- dilog(-exp(r * LMD))
+      # dilogarithm from {gsl}; also call with namespace
+      ts <- gsl::dilog(-exp(r * LMD))
       return(- drop(crossprod(lmd, MU)) + mean(- ts / r^2 - pi^2 / (6 * r^2)))
     } else {
       stop("Unknown 'divergence'. Use 'KL', 'LW', 'QLS', or 'TS'.")
@@ -48,7 +50,7 @@ grad.fun <- function(X, MU, divergence, r = 1) {
     if (divergence == "KL") {
       return(drop(crossprod(X, exp(LMD)) / n) - MU)
     } else if (divergence == "LW") {
-      lw <- lambertW0(r * exp(LMD))
+      lw <- lamW::lambertW0(r * exp(LMD))
       return(drop(crossprod(X, lw / r) / n) - MU)
     } else if (divergence == "QLS") {
       qls <- sqrt(1 + 4 * r * exp(LMD))

@@ -61,7 +61,6 @@ MU_int <- cbind(x1_int, x1_int^2, x2_int)               # (x1, x1^2, x2)
 MU_ext <- c(mean(x1_ext), mean(x1_ext^2), mean(x2_ext)) # external means for the same features
 
 eta <- mean(y_ext)                                       # step-2 target (mean of outcome)
-n_ext <- n1                                              # external sample size
 
 ## 3) Estimation with auto model search
 fit <- EB_est(
