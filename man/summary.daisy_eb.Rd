@@ -9,16 +9,23 @@
 \arguments{
 \item{object}{An object returned by EB_est() (class "daisy_eb").}
 
-\item{digits}{Number of digits to print.}
+\item{digits}{Number of digits to carry for numeric fields in the returned object.
+(The print method controls printed rounding.)}
 
 \item{...}{Unused.}
 }
 \value{
-An object of class "summary.daisy_eb".
+An object of class "summary.daisy_eb" with elements:
+\itemize{
+\item \code{est}: numeric point estimate (mean of w2 * y).
+\item \code{selected}: list(divergence, r) for the chosen model.
+\item \code{table}: data.frame with (divergence, r, Entropy2, D1, D2).
+\item \code{auto}: logical flag (TRUE if auto search was used).
+}
 }
 \description{
-Prints the point estimate and diagnostics. If \code{auto = TRUE}, it shows the
-selected first-step model and a leaderboard with Entropy2, D1, and D2 for
-all candidates. If \code{auto = FALSE}, it shows the fixed model with its
-Entropy2, D1, and D2.
+Builds a compact summary object for printing. If \code{auto = TRUE}, it
+includes the selected first-step model and a leaderboard with
+Entropy2, D1, and D2 for all candidates. If \code{auto = FALSE}, it shows
+the fixed model with those diagnostics.
 }
