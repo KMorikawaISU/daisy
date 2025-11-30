@@ -76,17 +76,17 @@ fit$result["est"]
 fit$Entropy2
 
 ## Human-readable summary (point estimate + selected model + per-model Entropy2/D1/D2)
-summary(fit)
+#summary(fit)
 
 
 ## 3-2) Estimation with specified model
-fit <- EB_est(
-  dat_int, MU_int, MU_ext, eta,
-  auto       = FALSE,
-  divergence = "WL",
-  r          = 0.1,
-  link       = "identity"
-)
+#fit <- EB_est(
+#  dat_int, MU_int, MU_ext, eta,
+#  auto       = FALSE,
+#  divergence = "LW",
+#  r          = 0.1,
+#  link       = "identity"
+#)
 
 ## Human-readable summary (point estimate + selected model + per-model Entropy2/D1/D2)
 summary(fit)
