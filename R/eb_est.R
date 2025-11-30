@@ -159,6 +159,11 @@ EB_est_one <- function(
     D1_override = NULL
 ) {
   y_int <- dat_int$y_int
+  # Internal sample size n is taken automatically from dat_int
+  n <- nrow(dat_int)
+  if (nrow(MU_int) != n) {
+    stop("dat_int and MU_int must have the same number of rows.")
+  }
 
   # D1 (allow override for efficiency); D1 uses features WITHOUT intercept
   if (is.null(D1_override)) {
@@ -267,10 +272,18 @@ EB_est_one <- function(
     if (!inherits(opt2, "try-error") && opt2$convergence == 0 && sum(opt2$par >= M) < 1) ok2 <- TRUE
     k2 <- k2 + 1
   }
-  LMD2 <- as.numeric(eta_int  %*% opt2$par)
-  w2   <- w.hat.fun(LMD2, "KL", r =1)
-  ent2 <- ent.fun(w2, divergence = "KL", r = 1)
-  est  <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_
+
+  # Even if step-2 optimizer did not fully converge, we guard against hard errors
+  if (inherits(opt2, "try-error")) {
+    w2   <- rep(NA_real_, n)
+    ent2 <- NA_real_
+    est  <- NA_real_
+  } else {
+    LMD2 <- as.numeric(eta_int %*% opt2$par)
+    w2   <- w.hat.fun(LMD2, "KL", r = 1)
+    ent2 <- ent.fun(w2, divergence = "KL", r = 1)
+    est  <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_
+  }
 
   out <- list(
     model    = divergence,
@@ -285,4 +298,196 @@ EB_est_one <- function(
     D2       = D2
   )
   return(out)
+}
+
+
+
+#' Bootstrap Variance (Appendix B; no auto inside bootstrap)
+#'
+#' @inheritParams EB_est
+#' @param n_ext External sample size (n1).
+#' @param BB Bootstrap repetitions (B1=B2=BB).
+#' @param external.boot TRUE resamples external summaries; FALSE fixes them.
+#' @param seed Optional RNG seed.
+#' @param max_redraws Maximum number of resampling attempts per bootstrap
+#'   iteration when the estimator fails to converge. If this limit is exceeded,
+#'   the corresponding bootstrap replicate is recorded as NA.
+#' @return List with elements:
+#'   \itemize{
+#'     \item \code{point_estimate} Point estimate from the original data.
+#'     \item \code{bootstrap_se}, \code{bootstrap_var} Bootstrap standard error/variance.
+#'     \item \code{ci_normal_95}, \code{ci_percentile_95} 95\% confidence intervals.
+#'     \item \code{SigmaW_hat} Estimated covariance of (mu_x, eta).
+#'     \item \code{theta_boot} Vector of bootstrap estimates.
+#'     \item \code{bootstrap_redraws_total} Total number of redraws due to non-convergence.
+#'     \item \code{bootstrap_redraws_per_iteration} Integer vector of redraw counts per bootstrap iteration.
+#'   }
+#' @export
+EB_bootstrap_var <- function(
+    dat_int, MU_int, MU_ext, eta,
+    n_ext, BB = 200,
+    divergence = "KL", r = 1,
+    w_type = FALSE, second_covariate = NULL,
+    link = "identity", M = 10,
+    external.boot = TRUE, seed = NULL,
+    max_redraws = 50L
+) {
+  if (!is.null(seed)) set.seed(seed)
+
+  stopifnot(
+    is.matrix(MU_int),
+    is.numeric(MU_ext),
+    ncol(MU_int) == length(MU_ext),
+    is.data.frame(dat_int),
+    "y_int" %in% names(dat_int)
+  )
+
+  max_redraws <- as.integer(max_redraws)
+  if (is.na(max_redraws) || max_redraws < 0L) {
+    stop("'max_redraws' must be a non-negative integer.")
+  }
+
+  # Internal sample size n is taken automatically from dat_int
+  n <- nrow(dat_int)
+  if (nrow(MU_int) != n) {
+    stop("dat_int and MU_int must have the same number of rows.")
+  }
+
+  p  <- ncol(MU_int)
+  dW <- (p - 1) + 1
+
+  point <- EB_est(dat_int, MU_int, MU_ext, eta,
+                  divergence = divergence, r = r,
+                  w_type = w_type, second_covariate = second_covariate,
+                  link = link, M = M, auto = FALSE)
+  theta_hat <- as.numeric(point$result["est"])
+
+  # First-level bootstrap to estimate Sigma_W
+  W_mat <- matrix(NA_real_, nrow = BB, ncol = dW)
+  colnames(W_mat) <- c(paste0("mu_x[", 1:(p - 1), "]"), "eta")
+  for (b1 in 1:BB) {
+    idx <- sample.int(n, n, TRUE)
+    MU_b  <- MU_int[idx, , drop = FALSE]
+    di_b  <- dat_int[idx, , drop = FALSE]
+    W_mat[b1, ] <- c(colMeans(MU_b[, -1, drop = FALSE]), mean(di_b$y_int))
+  }
+  SigmaW_hat <- stats::cov(W_mat, use = "complete.obs")
+  eig <- eigen(SigmaW_hat, symmetric = TRUE, only.values = TRUE)$values
+  if (any(eig < .Machine$double.eps)) {
+    SigmaW_hat <- SigmaW_hat + diag(1e-8, nrow(SigmaW_hat))
+  }
+
+  mu_ext_obs <- as.numeric(MU_ext[-1])
+  eta_ext_obs <- as.numeric(eta)
+  mean_vec <- c(mu_ext_obs, eta_ext_obs)
+  Sigma_scaled <- (n / n_ext) * SigmaW_hat
+
+  theta_boot <- numeric(BB)
+  redraw_counts <- integer(BB)
+
+  .rmvnorm_ <- function(n, mean, sigma) {
+    d <- length(mean)
+    if (requireNamespace("MASS", quietly = TRUE)) {
+      return(MASS::mvrnorm(n = n, mu = mean, Sigma = sigma))
+    } else if (requireNamespace("mvtnorm", quietly = TRUE)) {
+      return(mvtnorm::rmvnorm(n = n, mean = mean, sigma = sigma))
+    } else {
+      ev <- eigen(sigma, symmetric = TRUE); ev$values[ev$values < 0] <- 0
+      L <- ev$vectors %*% diag(sqrt(ev$values), d, d)
+      Z <- matrix(stats::rnorm(n * d), n, d)
+      return(sweep(Z %*% t(L), 2, mean, FUN = "+"))
+    }
+  }
+
+  # Second-level bootstrap: resample until the estimator converges, up to max_redraws
+  for (b2 in 1:BB) {
+    redraws_b2 <- 0L
+    theta_b2   <- NA_real_
+    converged  <- FALSE
+
+    while (!converged) {
+      idx2  <- sample.int(n, n, TRUE)
+      MU_b2 <- MU_int[idx2, , drop = FALSE]
+      di_b2 <- dat_int[idx2, , drop = FALSE]
+
+      if (isTRUE(external.boot)) {
+        draw <- as.numeric(.rmvnorm_(1, mean = mean_vec, sigma = Sigma_scaled))
+        mu_ext_b2  <- draw[1:(p - 1)]
+        eta_ext_b2 <- draw[p]
+      } else {
+        mu_ext_b2  <- mu_ext_obs
+        eta_ext_b2 <- eta_ext_obs
+      }
+      MU_ext_b2 <- c(1, mu_ext_b2)
+
+      res <- try(
+        EB_est(di_b2, MU_b2, MU_ext_b2, eta_ext_b2,
+               divergence = divergence, r = r,
+               w_type = w_type, second_covariate = second_covariate,
+               link = link, M = M, auto = FALSE),
+        silent = TRUE
+      )
+
+      theta_b2 <- NA_real_
+      if (!inherits(res, "try-error") &&
+          !is.null(res$result) &&
+          !is.null(res$result["est"])) {
+        theta_b2 <- as.numeric(res$result["est"])
+      }
+      converged <- is.finite(theta_b2)
+
+      if (!converged) {
+        redraws_b2 <- redraws_b2 + 1L
+        if (redraws_b2 > max_redraws) {
+          warning(sprintf(
+            "Bootstrap iteration %d: failed to obtain a convergent estimate after %d redraws; storing NA.",
+            b2, max_redraws
+          ))
+          break
+        }
+      }
+    }
+
+    theta_boot[b2]  <- theta_b2
+    redraw_counts[b2] <- redraws_b2
+  }
+
+  boot_var <- stats::var(theta_boot, na.rm = TRUE)
+  boot_se  <- sqrt(boot_var)
+  ci_norm  <- c(
+    lower = theta_hat - 1.96 * boot_se,
+    upper = theta_hat + 1.96 * boot_se
+  )
+  qs <- stats::quantile(theta_boot, c(0.025, 0.975),
+                        na.rm = TRUE, names = FALSE)
+  ci_perc <- c(lower = qs[1], upper = qs[2])
+
+  total_redraws <- sum(redraw_counts)
+  if (total_redraws > 0L) {
+    n_iters_redrawn <- sum(redraw_counts > 0L)
+    message(sprintf(
+      "Bootstrap: %d out of %d iterations required redraws (total redraws = %d).",
+      n_iters_redrawn, BB, total_redraws
+    ))
+  }
+
+  list(
+    point_estimate                    = theta_hat,
+    bootstrap_se                      = boot_se,
+    bootstrap_var                     = boot_var,
+    ci_normal_95                      = ci_norm,
+    ci_percentile_95                  = ci_perc,
+    B1                                = BB,
+    B2                                = BB,
+    n_int                             = n,
+    n_ext                             = n_ext,
+    SigmaW_hat                        = SigmaW_hat,
+    theta_boot                        = theta_boot,
+    call_divergence                   = divergence,
+    call_r                            = r,
+    external.boot                     = external.boot,
+    max_redraws                       = max_redraws,
+    bootstrap_redraws_total           = total_redraws,
+    bootstrap_redraws_per_iteration   = redraw_counts
+  )
 }
