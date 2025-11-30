@@ -279,17 +279,10 @@ EB_est_one <- function(
     }
     k2 <- k2 + 1
   }
-
-  if (inherits(opt2, "try-error")) {
-    w2   <- rep(NA_real_, n)
-    ent2 <- NA_real_
-    est  <- NA_real_
-  } else {
-    LMD2 <- as.numeric(eta_int %*% opt2$par)
-    w2   <- w.hat.fun(LMD2, "KL", r = 1)
-    ent2 <- ent.fun(w2, divergence = "KL", r = 1)
-    est  <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_
-  }
+  LMD2 <- as.numeric(eta_int %*% opt2$par)
+  w2   <- w.hat.fun(LMD2, "KL", r = 1)
+  ent2 <- ent.fun(w2, divergence = "KL", r = 1)
+  est  <- if (ok1 && ok2) mean(w2 * y_int) else NA_real_
 
   out <- list(
     model    = divergence,
@@ -312,7 +305,10 @@ EB_est_one <- function(
 #'
 #' @inheritParams EB_est
 #' @param n_ext External sample size (n1).
-#' @param BB Bootstrap repetitions (B1 = B2 = BB).
+#' @param B1 Number of bootstrap repetitions used to estimate \code{SigmaW_hat}
+#'   (first-level bootstrap over the internal sample).
+#' @param B2 Number of bootstrap repetitions used to generate \code{theta_boot}
+#'   (second-level bootstrap for the estimator).
 #' @param external.boot TRUE resamples external summaries; FALSE fixes them.
 #' @param seed Optional RNG seed.
 #' @param max_redraws Maximum number of resampling attempts per bootstrap
@@ -332,7 +328,7 @@ EB_est_one <- function(
 #' @export
 EB_bootstrap_var <- function(
     dat_int, MU_int, MU_ext, eta,
-    n_ext, BB = 200,
+    n_ext, B1 = 200, B2 = 200,
     divergence = "KL", r = 1,
     w_type = FALSE, second_covariate = NULL,
     link = "identity", M = 10,
@@ -354,6 +350,11 @@ EB_bootstrap_var <- function(
     stop("'max_redraws' must be a non-negative integer.")
   }
 
+  B1 <- as.integer(B1)
+  B2 <- as.integer(B2)
+  if (is.na(B1) || B1 <= 0L) stop("'B1' must be a positive integer.")
+  if (is.na(B2) || B2 <= 0L) stop("'B2' must be a positive integer.")
+
   # Internal sample size taken automatically from dat_int
   n <- nrow(dat_int)
   if (nrow(MU_int) != n) {
@@ -373,10 +374,10 @@ EB_bootstrap_var <- function(
   # ------------------------------------------------------------------
   # First-level bootstrap: estimate Sigma_W for (mu_x, eta)
   # ------------------------------------------------------------------
-  W_mat <- matrix(NA_real_, nrow = BB, ncol = dW)
+  W_mat <- matrix(NA_real_, nrow = B1, ncol = dW)
   colnames(W_mat) <- c(paste0("mu_x[", 1:p, "]"), "eta")
 
-  for (b1 in seq_len(BB)) {
+  for (b1 in seq_len(B1)) {
     idx <- sample.int(n, n, TRUE)
     MU_b  <- MU_int[idx, , drop = FALSE]
     di_b  <- dat_int[idx, , drop = FALSE]
@@ -396,8 +397,8 @@ EB_bootstrap_var <- function(
 
   Sigma_scaled <- (n / n_ext) * SigmaW_hat
 
-  theta_boot    <- numeric(BB)
-  redraw_counts <- integer(BB)
+  theta_boot    <- numeric(B2)
+  redraw_counts <- integer(B2)
 
   .rmvnorm_ <- function(n, mean, sigma) {
     d <- length(mean)
@@ -417,7 +418,7 @@ EB_bootstrap_var <- function(
   # ------------------------------------------------------------------
   # Second-level bootstrap: resample until finite estimate or max_redraws
   # ------------------------------------------------------------------
-  for (b2 in seq_len(BB)) {
+  for (b2 in seq_len(B2)) {
     redraws_b2 <- 0L
     theta_b2   <- NA_real_
     converged  <- FALSE
@@ -491,8 +492,8 @@ EB_bootstrap_var <- function(
   if (total_redraws > 0L) {
     n_iters_redrawn <- sum(redraw_counts > 0L)
     message(sprintf(
-      "Bootstrap: %d out of %d iterations required redraws (total redraws = %d).",
-      n_iters_redrawn, BB, total_redraws
+      "Bootstrap: %d out of %d second-level iterations required redraws (total redraws = %d).",
+      n_iters_redrawn, B2, total_redraws
     ))
   }
 
@@ -502,8 +503,8 @@ EB_bootstrap_var <- function(
     bootstrap_var                   = boot_var,
     ci_normal_95                    = ci_norm,
     ci_percentile_95                = ci_perc,
-    B1                              = BB,
-    B2                              = BB,
+    B1                              = B1,
+    B2                              = B2,
     n_int                           = n,
     n_ext                           = n_ext,
     SigmaW_hat                      = SigmaW_hat,
