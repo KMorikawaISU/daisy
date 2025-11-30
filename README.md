@@ -95,7 +95,10 @@ summary(fit)
 ## 4) Bootstrap variance (no auto; fix the selected model)
 bt <- EB_bootstrap_var(
   dat_int, MU_int, MU_ext, eta,
-  n_ext = n_ext, BB = 200,
+  n_ext = n_ext, B1 = 500, B2 = 200,
+  w_type = TRUE,
+  link   = "identity",
+  seed   = 1234,
   divergence    = fit$best_model$divergence,
   r             = fit$best_model$r,
   external.boot = TRUE
