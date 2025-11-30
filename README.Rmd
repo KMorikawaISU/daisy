@@ -37,7 +37,7 @@ remotes::install_github("KMorikawaISU/daisy")
 ## Quick start (paper-style toy data)
 
 > Simplest setting: **[Internal] x1 ~ N(0,1)**, **[External] x1 ~ N(0.5,1)**, **x2 ~ Bern(0.5)**, **y | x ~ N(0.5*x1 − x2, 1)**,  
-> Sample sizes: [internal] **n = 200**, [external] **n1 = 2000**.  
+> Sample sizes: [internal] **n = 200**, [external] **n_ext = 2000**.  
 > This chunk is **not executed** to keep the README light (`eval = FALSE`).
 
 ```{r, eval=FALSE}
@@ -45,16 +45,16 @@ library(daisy)
 
 ## 1) Generate toy data
 set.seed(1)
-n  <- 200
-n1 <- 2000
+n     <- 200
+n_ext <- 2000
 
 x1_int <- rnorm(n, 0, 1)
 x2_int <- rbinom(n, 1, 0.5)
 y_int  <- rnorm(n, 0.5 * x1_int - x2_int, 1)
 
-x1_ext <- rnorm(n1, 0.5, 1)
-x2_ext <- rbinom(n1, 1, 0.5)
-y_ext  <- rnorm(n1, 0.5 * x1_ext - x2_ext, 1)
+x1_ext <- rnorm(n_ext, 0.5, 1)
+x2_ext <- rbinom(n_ext, 1, 0.5)
+y_ext  <- rnorm(n_ext, 0.5 * x1_ext - x2_ext, 1)
 
 ## 2) Build inputs
 dat_int <- data.frame(
@@ -105,7 +105,6 @@ bt <- EB_bootstrap_var(
   n_ext = n_ext, B1 = 500, B2 = 200,
   w_type = TRUE,
   link   = "identity",
-  seed   = 1234,
   divergence    = fit$best_model$divergence,
   r             = fit$best_model$r,
   external.boot = TRUE
