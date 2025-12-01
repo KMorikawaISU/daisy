@@ -94,9 +94,11 @@ summary(fit)
 
 
 ## 4) Bootstrap variance (no auto; fix the selected model)
+#B1: Number of bootstrap repetitions for SigmaW_hat 
+#B2: Number of bootstrap repetitions for theta_boot
 bt <- EB_bootstrap_var(
   dat_int, MU_int, MU_ext, eta,
-  n_ext = n_ext, B1 = 500, B2 = 200,
+  n_ext = n_ext, B1 = 200, B2 = 500,
   w_type = TRUE,
   link   = "identity",
   divergence    = fit$best_model$divergence,

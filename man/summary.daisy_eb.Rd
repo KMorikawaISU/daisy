@@ -17,11 +17,11 @@
 \value{
 An object of class "summary.daisy_eb" with elements:
 \itemize{
-\item \code{est} numeric point estimate for the \emph{selected} (or only) run.
+\item \code{estimate} numeric point estimate for the \emph{selected} (or only) run.
 \item \code{selected} list(divergence, r) describing the selected model
 when \code{auto = TRUE}, or the fixed model when \code{auto = FALSE}.
 \item \code{table} data.frame with columns
-\code{est}, \code{divergence}, \code{r}, \code{Entropy2}, \code{D1}, \code{D2}.
+\code{estimate}, \code{divergence}, \code{r}, \code{Entropy2}, \code{D1}, \code{D2}.
 \item \code{auto} logical indicating whether auto model search was used.
 }
 }
@@ -30,8 +30,8 @@ Creates a summary object containing:
 \itemize{
 \item the overall point estimate (for the returned/selected run),
 \item the selected model information (if auto = TRUE),
-\item and a leaderboard-like table that now includes the per-model point
-estimate \code{est} as the leftmost column.
+\item and a leaderboard-like table that includes the per-model point
+estimate \code{estimate} as the leftmost column.
 }
 }
 \details{

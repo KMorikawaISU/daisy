@@ -18,6 +18,6 @@ Nicely prints:
 \itemize{
 \item the point estimate for the selected (or fixed) run,
 \item the selected model (auto) or the fixed model,
-\item a table with per-model point estimates (est) and diagnostics.
+\item a table with per-model point estimates (estimate) and diagnostics.
 }
 }
